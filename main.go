@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -24,7 +25,6 @@ func Handler(ctx context.Context, s3Event events.S3Event) {
 	for _, record := range s3Event.Records {
 		s3 := record.S3
 		fmt.Printf("[%s - %s] Bucket = %s, Key = %s \n", record.EventSource, record.EventTime, s3.Bucket.Name, s3.Object.Key)
-		fmt.Printf("Hello From Go")
 
 		imageToParse := rekognition.DetectTextInput{
 			Image: &rekognition.Image{
@@ -34,9 +34,23 @@ func Handler(ctx context.Context, s3Event events.S3Event) {
 				},
 			},
 		}
-		plateNumber, _ := awsRekognition.DetectText(&imageToParse)
 
-		println(plateNumber.String)
+		rekognitionResult, err := awsRekognition.DetectText(&imageToParse)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		textDetectionResult := ""
+
+		for _, v := range rekognitionResult.TextDetections {
+			textDetectionResult = textDetectionResult + v.String()
+		}
+
+		regexPattern, _ := regexp.Compile(`([A-Z]{1,2}([\s]{1}|[\S])(\d){1,5}([\s]{1}|[\S])[A-Z]{2,3})`)
+		result := regexPattern.FindString(textDetectionResult)
+
+		fmt.Println(result)
+
 	}
 }
 
